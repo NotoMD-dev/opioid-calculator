@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* Optional design tokens via CSS vars */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+/* Map theme (optional) */
+/*@theme*/ inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* If you loaded custom fonts elsewhere, you can alias them here: */
+  /* --font-sans: var(--font-geist-sans);
+     --font-mono: var(--font-geist-mono); */
+}
+
+/* Base styles */
+@layer base {
+  html { color-scheme: light dark; }
+  body {
+    @apply antialiased bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+  }
+}
+
+/* Don’t also set body {} again; the @apply handles it */
