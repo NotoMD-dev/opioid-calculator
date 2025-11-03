@@ -14,7 +14,6 @@ import { Switch } from "../components/ui/Switch";
 // =========================================================
 
 
-
 // Renamed from OpioidConversionDemo to match Next.js App Router convention (page.tsx)
 export default function OpioidConversionPage() {
   // Only minimal UI state remains here
@@ -32,6 +31,7 @@ export default function OpioidConversionPage() {
           </h1>
           <p className="mt-2 text-base text-gray-600">
             A clinical tool for calculating opioid conversions and building pain regimens for hospitalized adults. 
+            
             <span className="font-extrabold text-black-600 ml-1">
               This tool does not replace clinical judgement and is meant to assist in decision-making. Always verify calculations and consider patient-specific factors.
             </span>
@@ -42,12 +42,6 @@ export default function OpioidConversionPage() {
 
           {/* PRN + Multimodal merged */}
           <PRNSuggestionTable showPrnArea={showPrnArea} setShowPrnArea={setShowPrnArea} />
-
-          {/* Final Summary with A&P format + its own toggle */}
-          <RegimenSummary
-            showPrnArea={showPrnArea}
-            setShowPrnArea={setShowPrnArea}
-          />
 
           {/* Quick converter */}
           <section className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
