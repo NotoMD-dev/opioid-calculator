@@ -11,7 +11,10 @@ export type Opioid =
   | "tapentadol"
   | "fentanyl_tds"
   | "methadone"
-  | "buprenorphine";
+  | "buprenorphine"
+  // combo products we want to treat specially
+  | "oxycodone_apap" // Percocet
+  | "hydrocodone_apap"; // Norco, Vicodin-style
 
 export type Route = "oral" | "iv" | "tds";
 export type Severity = "moderate" | "severe" | "breakthrough";
@@ -25,6 +28,8 @@ export interface HomeMedRow {
   isPRN?: boolean;
   avgPrnDosesPerDay?: number;
   isER?: boolean;
+  // used only when drug is a combo (Percocet/Norco)
+  apapPerTabMg?: number;
 }
 
 export interface DoseInput {
@@ -40,24 +45,36 @@ export interface SwitchOptions {
 }
 
 export interface RotateTargetResult {
-  range: [number, number] | null; // [low daily mg, high daily mg] of target drug
+  range: [number, number] | null;
   notes: string[];
-  fentanylPatchMcgHr?: [number, number]; // [low mcg/h, high mcg/h] for fentanyl
+  fentanylPatchMcgHr?: [number, number];
 }
 
-export type PainRowSelection = { drug?: Opioid; route?: Route; freq?: number };
+export type PainRowSelection = {
+  drug?: Opioid;
+  route?: Route;
+  freq?: number;
+  // only used when the selected PRN drug is a combo
+  apapPerTabMg?: number;
+};
 
 export interface PrnSuggestionResult {
   text: string;
   low?: number;
   high?: number;
   note?: string;
+  calcLines?: string[];
 }
+
 export type PrnRows = Record<Severity, PrnSuggestionResult>;
 
 export interface RegimenContextType {
   ome: number;
   details: string[];
+  // NEW: real APAP tally from the home section
+  apapDailyMg: number;
+  apapNearMax: boolean;
+
   opioidNaive: boolean;
   setOpioidNaive: React.Dispatch<React.SetStateAction<boolean>>;
   homeRows: HomeMedRow[];

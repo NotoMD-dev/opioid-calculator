@@ -1,5 +1,4 @@
 // src/context/RegimenContext.tsx
-
 "use client";
 import React, {
   createContext,
@@ -21,6 +20,7 @@ import {
   totalHomeOME,
   prnSuggestion,
 } from "../utils/conversionLogic";
+import { APAP_CAUTION_MG } from "../utils/constants";
 
 const RegimenContext = createContext<RegimenContextType | undefined>(undefined);
 
@@ -33,34 +33,26 @@ export const useRegimenContext = () => {
 };
 
 export function RegimenProvider({ children }: { children: React.ReactNode }) {
-  // --- Home Regimen State ---
   const [opioidNaive, setOpioidNaive] = useState(false);
   const [homeRows, setHomeRows] = useState<HomeMedRow[]>([
     { id: generateUniqueId(), isPRN: false },
   ]);
   const [continueER, setContinueER] = useState<boolean | null>(null);
 
-  // --- PRN & Multimodal State ---
   const [painRowSelections, setPainRowSelections] = useState<
     Record<Severity, PainRowSelection>
   >({ moderate: {}, severe: {}, breakthrough: {} });
+
   const [needSpasm, setNeedSpasm] = useState(false);
   const [needNeuropathic, setNeedNeuropathic] = useState(false);
   const [needLocalized, setNeedLocalized] = useState(false);
   const [needGeneral, setNeedGeneral] = useState(false);
 
-  // --- Home Regimen Actions ---
-  const updateHomeRow = useCallback(
-    (id: string, patch: Partial<HomeMedRow>) => {
-      setHomeRows((prev) =>
-        prev.map((r) => {
-          if (r.id !== id) return r;
-          return { ...r, ...patch };
-        })
-      );
-    },
-    []
-  );
+  const updateHomeRow = useCallback((id: string, patch: Partial<HomeMedRow>) => {
+    setHomeRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+    );
+  }, []);
 
   const addHomeRow = useCallback(() => {
     if (opioidNaive) return;
@@ -71,7 +63,6 @@ export function RegimenProvider({ children }: { children: React.ReactNode }) {
     setHomeRows((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  // --- Side Effects ---
   useEffect(() => {
     if (opioidNaive) {
       setHomeRows([]);
@@ -80,10 +71,11 @@ export function RegimenProvider({ children }: { children: React.ReactNode }) {
     }
   }, [opioidNaive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Calculated Values (OME & Details) ---
-  const { ome, details } = useMemo(() => totalHomeOME(homeRows), [homeRows]);
+  const { ome, details, apapDailyMg } = useMemo(
+    () => totalHomeOME(homeRows),
+    [homeRows]
+  );
 
-  // --- Calculated Values (PRN Suggestions) ---
   const prnRows: PrnRows = useMemo(() => {
     const build = (sev: Severity) => {
       const sel = painRowSelections[sev];
@@ -91,6 +83,7 @@ export function RegimenProvider({ children }: { children: React.ReactNode }) {
         return { text: "" } as PrnRows[Severity];
       return prnSuggestion(ome, sel.drug, sel.route, sel.freq, sev, {
         opioidNaive,
+        apapPerTabMg: sel.apapPerTabMg,
       });
     };
     return {
@@ -104,6 +97,8 @@ export function RegimenProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ome,
       details,
+      apapDailyMg,
+      apapNearMax: apapDailyMg >= APAP_CAUTION_MG,
       opioidNaive,
       setOpioidNaive,
       homeRows,
@@ -127,6 +122,7 @@ export function RegimenProvider({ children }: { children: React.ReactNode }) {
     [
       ome,
       details,
+      apapDailyMg,
       opioidNaive,
       homeRows,
       updateHomeRow,

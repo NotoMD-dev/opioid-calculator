@@ -1,5 +1,4 @@
 // src/utils/constants.ts
-
 import { Opioid, Route, Severity } from "../types";
 
 // --- Labels ---
@@ -16,6 +15,8 @@ export const OPIOID_LABELS: Record<Opioid, string> = {
   fentanyl_tds: "Fentanyl (transdermal)",
   methadone: "Methadone",
   buprenorphine: "Buprenorphine",
+  oxycodone_apap: "Oxycodone/APAP (Percocet)",
+  hydrocodone_apap: "Hydrocodone/APAP (Norco)",
 };
 
 export const OPIOID_SHORT: Record<Opioid, string> = {
@@ -30,6 +31,8 @@ export const OPIOID_SHORT: Record<Opioid, string> = {
   fentanyl_tds: "Fentanyl",
   methadone: "Methadone",
   buprenorphine: "Bupe",
+  oxycodone_apap: "Percocet",
+  hydrocodone_apap: "Norco",
 };
 
 export const ROUTE_LABELS: Record<Route, string> = {
@@ -44,7 +47,7 @@ export const PAIN_ROWS: { key: Severity; label: string }[] = [
   { key: "breakthrough", label: "Breakthrough" },
 ];
 
-// --- Factors ---
+// --- Factors (MME etc) ---
 
 export const MME_FACTORS: Record<Opioid, number | null> = {
   morphine: 1,
@@ -55,12 +58,17 @@ export const MME_FACTORS: Record<Opioid, number | null> = {
   codeine: 0.15,
   tramadol: 0.1,
   tapentadol: 0.4,
-  fentanyl_tds: null, // Calculated using a range, not a fixed factor
-  methadone: null, // Complex, requires specialty guidance
-  buprenorphine: null, // Not typically used for OME conversion
+  fentanyl_tds: null,
+  methadone: null,
+  buprenorphine: null,
+  // combos use the opioid part
+  oxycodone_apap: 1.5,
+  hydrocodone_apap: 1,
 };
 
-export const TARGET_FACTORS: Partial<Record<Opioid, Partial<Record<Route, number>>>> = {
+export const TARGET_FACTORS: Partial<
+  Record<Opioid, Partial<Record<Route, number>>>
+> = {
   morphine: { oral: 1, iv: 3 },
   oxycodone: { oral: 1.5 },
   hydrocodone: { oral: 1 },
@@ -69,7 +77,9 @@ export const TARGET_FACTORS: Partial<Record<Opioid, Partial<Record<Route, number
   codeine: { oral: 0.15 },
   tramadol: { oral: 0.1 },
   tapentadol: { oral: 0.4 },
-  // Fentanyl, Methadone, Buprenorphine conversions are handled separately
+  // combos behave like their base opioid
+  oxycodone_apap: { oral: 1.5 },
+  hydrocodone_apap: { oral: 1 },
 };
 
 export const ALLOWED_ROUTES: Record<Opioid, Route[]> = {
@@ -84,23 +94,77 @@ export const ALLOWED_ROUTES: Record<Opioid, Route[]> = {
   fentanyl_tds: ["tds"],
   methadone: ["oral"],
   buprenorphine: ["oral"],
+  oxycodone_apap: ["oral"],
+  hydrocodone_apap: ["oral"],
 };
 
 export const FENT_PATCHES = [12, 25, 37, 50, 62, 75, 100];
 
-// --- Calculation Constants for Dosing Range (New/Improved) ---
-// Used in rotateToTarget logic
+// --- PRN range / rounding constants ---
 
-export const STANDARD_LOW_FACTOR = 0.9;  // Standard low end: 10% below target
-export const STANDARD_HIGH_FACTOR = 1.1; // Standard high end: 10% above target
+export const STANDARD_LOW_FACTOR = 0.9;
+export const STANDARD_HIGH_FACTOR = 1.1;
 
-export const FRAIL_LOW_FACTOR = 0.75;    // Frail low end: 25% below target
-export const FRAIL_HIGH_FACTOR = 0.9;    // Frail high end: 10% below target
-export const FRAIL_FENTANYL_REDUCTION_FACTOR = 0.75; // Reduces Fentanyl high end by 25% for frail
+export const FRAIL_LOW_FACTOR = 0.75;
+export const FRAIL_HIGH_FACTOR = 0.9;
+export const FRAIL_FENTANYL_REDUCTION_FACTOR = 0.75;
 
-// Used in PRN Suggestion logic
 export const PRN_FRACTIONS: Record<Severity, [number, number]> = {
   moderate: [0.1, 0.1],
   severe: [0.15, 0.15],
   breakthrough: [0.1, 0.2],
+};
+
+// --- APAP / combo helpers ---
+
+export const IS_COMBO: Record<Opioid, boolean> = {
+  morphine: false,
+  oxycodone: false,
+  hydrocodone: false,
+  hydromorphone: false,
+  oxymorphone: false,
+  codeine: false,
+  tramadol: false,
+  tapentadol: false,
+  fentanyl_tds: false,
+  methadone: false,
+  buprenorphine: false,
+  oxycodone_apap: true,
+  hydrocodone_apap: true,
+};
+
+// typical dropdown values you showed
+export const APAP_PER_TAB_OPTIONS = [325, 300];
+
+export const APAP_CAUTION_MG = 3000; // show "be careful" ≥ 3 g
+export const APAP_MAX_MG = 4000; // hard upper limit 4 g/day
+
+// real-world tablet strengths for PRN building
+export const COMBO_TABLES: Record<
+  Opioid,
+  { opioidMg: number; apapMg: number; maxTabsPerDay: number }[]
+> = {
+  oxycodone_apap: [
+    { opioidMg: 2.5, apapMg: 325, maxTabsPerDay: 12 },
+    { opioidMg: 5, apapMg: 325, maxTabsPerDay: 12 },
+    { opioidMg: 7.5, apapMg: 325, maxTabsPerDay: 8 },
+    { opioidMg: 10, apapMg: 325, maxTabsPerDay: 6 },
+  ],
+  hydrocodone_apap: [
+    { opioidMg: 5, apapMg: 325, maxTabsPerDay: 8 },
+    { opioidMg: 7.5, apapMg: 325, maxTabsPerDay: 6 },
+    { opioidMg: 10, apapMg: 300, maxTabsPerDay: 6 },
+  ],
+  // others: no entries
+  morphine: [],
+  oxycodone: [],
+  hydrocodone: [],
+  hydromorphone: [],
+  oxymorphone: [],
+  codeine: [],
+  tramadol: [],
+  tapentadol: [],
+  fentanyl_tds: [],
+  methadone: [],
+  buprenorphine: [],
 };
