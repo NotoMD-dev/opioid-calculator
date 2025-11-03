@@ -1,42 +1,33 @@
 // src/components/RegimenSummary.tsx
+
 "use client";
-
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useRegimenContext } from "../context/RegimenContext";
+import { Opioid } from "../types";
 import { OPIOID_LABELS, ROUTE_LABELS } from "../utils/constants";
+import { fmtDose, copyToClipboard } from "../utils/conversionLogic";
+import { Switch } from "./ui/Switch"; // Kept for general use, but not for PRN visibility
 
-async function copyTextToClipboard(text: string) {
-  try {
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return;
-    }
-  } catch {}
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  ta.style.position = "fixed";
-  ta.style.opacity = "0";
-  document.body.appendChild(ta);
-  ta.select();
-  try {
-    document.execCommand("copy");
-  } catch {}
-  document.body.removeChild(ta);
-}
-
-export function RegimenSummary() {
+export function RegimenSummary() { // Removed showPrnArea and setShowPrnArea from props
   const {
+    prnRows,
     homeRows,
     continueER,
-    prnRows,
-    needGeneral,
-    needNeuropathic,
     needSpasm,
+    needNeuropathic,
     needLocalized,
+    needGeneral,
   } = useRegimenContext();
 
-  const [includePrn, setIncludePrn] = useState(true);
-  const [hideText, setHideText] = useState(false);
+  // --- HYDRATION FIX: Use state to track if the component has mounted on the client ---
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  // ---------------------------------------------------------------------------------
+
+  const [includePrn, setIncludePrn] = useState(true); // Now this state is about showing PRN details, not visibility of the whole section
+  // FIX: Removed hideText state and its toggle
   const [copied, setCopied] = useState(false);
 
   // find actual ER/LA rows
@@ -60,7 +51,7 @@ export function RegimenSummary() {
     [erRows]
   );
 
-  const summaryText = useMemo(() => {
+  const planText = useMemo(() => {
     const lines: string[] = [];
     lines.push("# Pain Management");
     lines.push("Plan:");
@@ -79,22 +70,20 @@ export function RegimenSummary() {
       }
     }
 
-    // 2. PRN section
-    if (includePrn) {
-      lines.push("2. PRN pain regimen:");
-      lines.push(
-        `> Mod: ${prnRows.moderate?.text ? prnRows.moderate.text : "—"}`
-      );
-      lines.push(
-        `> Sev: ${prnRows.severe?.text ? prnRows.severe.text : "—"}`
-      );
-      lines.push(
-        `> BTP: ${prnRows.breakthrough?.text ? prnRows.breakthrough.text : "—"}`
-      );
-    }
+    // 2. PRN section - Always included, but controlled by 'includePrn' toggle
+    lines.push("2. PRN pain regimen:");
+    lines.push(
+      `> Mod: ${prnRows.moderate?.text ? prnRows.moderate.text : "—"}`
+    );
+    lines.push(
+      `> Sev: ${prnRows.severe?.text ? prnRows.severe.text : "—"}`
+    );
+    lines.push(
+      `> BTP: ${prnRows.breakthrough?.text ? prnRows.breakthrough.text : "—"}`
+    );
 
     // 3. multimodal
-    lines.push(`${includePrn ? "3." : "2."} Multimodal Regimen:`);
+    lines.push(`3. Multimodal Regimen:`);
 
     if (!needGeneral && !needNeuropathic && !needSpasm && !needLocalized) {
       lines.push("> * None selected.");
@@ -119,7 +108,7 @@ export function RegimenSummary() {
   }, [
     erStrings,
     continueER,
-    includePrn,
+    includePrn, // This state is still used to control PRN section details
     prnRows.moderate?.text,
     prnRows.severe?.text,
     prnRows.breakthrough?.text,
@@ -130,59 +119,36 @@ export function RegimenSummary() {
   ]);
 
   async function handleCopy() {
-    if (!summaryText) return;
-    await copyTextToClipboard(summaryText);
+    if (!planText) return;
+    await copyToClipboard(planText);
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   }
 
   return (
-    <section className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 mt-6">
+    <section className="mt-6"> {/* Removed shadow/border/bg classes */}
       <div className="flex items-center justify-between mb-4 gap-4">
-        <h3 className="text-xl font-semibold text-gray-900">
-          Final Regimen Summary (A&amp;P Format)
-        </h3>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={includePrn}
-              onChange={(e) => setIncludePrn(e.target.checked)}
-              className="rounded"
-            />
-            Include PRN section
-          </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            Hide text
-            <button
-              type="button"
-              onClick={() => setHideText((s) => !s)}
-              className={`w-11 h-6 rounded-full transition relative ${
-                hideText ? "bg-indigo-500" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`w-5 h-5 bg-white rounded-full shadow absolute top-0.5 transition ${
-                  hideText ? "right-0.5" : "left-0.5"
-                }`}
-              />
-            </button>
-          </label>
-        </div>
+        {/* Removed the extraneous 'Show PRN section' toggle */}
+        {/* Removed the 'Hide Text' toggle and its state */}
+        {/* The 'Copy Assessment & Plan' button is now the primary interactive element */}
       </div>
 
       <button
         type="button"
         onClick={handleCopy}
-        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold mb-4"
+        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold mb-4 shadow-md transition-colors"
       >
         {copied ? "Copied ✓" : "Copy Assessment & Plan"}
       </button>
 
-      {!hideText && (
+      {/* Always show the output text, no longer toggleable */}
+      {isMounted && (
         <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
-          <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono leading-relaxed">
-            {summaryText}
+          <pre
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg
+                       text-sm whitespace-pre-wrap font-mono text-gray-800"
+          >
+            {planText}
           </pre>
         </div>
       )}

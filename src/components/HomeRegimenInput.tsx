@@ -32,17 +32,15 @@ export function HomeRegimenInput() {
       "1.5fr 1fr 1.2fr 1.2fr 0.5fr 1.3fr 0.7fr 0.2fr",
   } as const;
 
-  const cardStyle = "bg-white p-6 rounded-2xl shadow-lg border border-gray-100";
-  const headerStyle = "text-xl font-bold text-gray-900";
   const buttonStyle = "px-4 py-2 text-sm font-semibold rounded-lg transition-colors shadow-md";
   const removeButtonStyle =
     "p-1 border border-transparent text-red-500 rounded-md hover:bg-red-50 hover:border-red-300 transition-colors h-8 w-8 text-lg flex items-center justify-center";
 
   return (
-    <section className={cardStyle}>
+    <> {/* Replaced outer section and its classes with a fragment */}
       <div className="flex justify-between items-center gap-3 mb-4">
-        <h3 className={headerStyle}>Home Opioid Regimen</h3>
-        <div className="flex items-center gap-4">
+        {/* Removed redundant <h3> header */}
+        <div className="flex items-center gap-4 ml-auto">
           <label className="flex items-center gap-2 text-base font-semibold text-gray-800 cursor-pointer">
             <input
               type="checkbox"
@@ -98,6 +96,7 @@ export function HomeRegimenInput() {
                   className="grid gap-3 items-start p-2 mb-2 border-b border-gray-100 last:border-b-0"
                   style={rowGridStyle}
                 >
+                  {/* ... Row Content ... (omitted for brevity, it is unchanged) */}
                   {/* 1: Drug */}
                   <select
                     className={inputClass}
@@ -287,6 +286,6 @@ export function HomeRegimenInput() {
           </div>
         </div>
       )}
-    </section>
+    </> // Closing Fragment
   );
 }
