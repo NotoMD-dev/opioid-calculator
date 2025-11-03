@@ -1,130 +1,135 @@
 // src/components/RegimenSummary.tsx
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useRegimenContext } from "../context/RegimenContext";
-import { copyToClipboard } from "../utils/conversionLogic";
+import { Opioid } from "../types";
+import { OPIOID_LABELS, ROUTE_LABELS } from "../utils/constants";
+import { fmtDose, copyToClipboard } from "../utils/conversionLogic";
+import { Switch } from "./ui/Switch";
 
 export function RegimenSummary({
   showPrnArea,
   setShowPrnArea,
 }: {
   showPrnArea: boolean;
-  setShowPrnArea: (v: boolean) => void;
+  setShowPrnArea: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const {
-    ome,
-    details,
-    painRowSelections,
     prnRows,
+    homeRows,
+    continueER,
     needSpasm,
     needNeuropathic,
     needLocalized,
     needGeneral,
-    continueER,
   } = useRegimenContext();
 
-  const [copied, setCopied] = useState<null | "plan" | "ap">(null);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
 
-  // Build A&P text (simple + readable)
-  const planText = useMemo(() => {
-    const lines: string[] = [];
+  const longActFormattedList = useMemo(
+    () =>
+      homeRows
+        .filter((r) => r.isER && !r.isPRN)
+        .map(
+          (r) =>
+            `${OPIOID_LABELS[r.drug as Opioid]} ${fmtDose(
+              r.doseMg as number
+            )} ${r.route ? ROUTE_LABELS[r.route] : ""}${
+              r.freqHours ? ` q${r.freqHours}h` : ""
+            }`
+        ),
+    [homeRows]
+  );
 
-    lines.push(`Total OME/day: ${Math.round(ome)} mg`);
-    // 'details' already includes APAP/day and per-med lines (plus notes)
-    details.forEach((d) => lines.push(d));
+  const scheduledParts: string[] = [];
+  let action: string = "No home ER/LA documented.";
 
-    lines.push("");
-    lines.push("# Inpatient Regimen");
-    if (continueER === true) lines.push("- Continue home ER/LA opioid as ordered.");
-    if (continueER === false) lines.push("- Hold ER/LA opioid (reassess daily).");
+  if (continueER === true && longActFormattedList.length > 0) {
+    scheduledParts.push(...longActFormattedList);
+    action = `Continue home ER/LA: ${scheduledParts.join(" + ")}`;
+  } else if (continueER === false && longActFormattedList.length > 0) {
+    action = `HOLD home ER/LA regimen: ${longActFormattedList.join(" + ")}`;
+  } else if (longActFormattedList.length === 0) {
+    action = "No home ER/LA documented.";
+  }
 
-    if (showPrnArea) {
-      const sections = [
-        { label: "Moderate", txt: prnRows.moderate?.text || "" },
-        { label: "Severe", txt: prnRows.severe?.text || "" },
-        { label: "Breakthrough", txt: prnRows.breakthrough?.text || "" },
-      ];
-      for (const s of sections) {
-        if (s.txt) lines.push(`- ${s.label}: ${s.txt}`);
-      }
-    }
+  const selectedAdjuncts: string[] = [
+    needGeneral && "Add scheduled Tylenol 650–1000 mg PO q6h or NSAIDs",
+    needNeuropathic && "Add Gabapentin 100–300 mg PO q8–12h",
+    needSpasm && "Consider Methocarbamol 500 mg PO q8h for PRN spasms",
+    needLocalized && "Add Lidocaine 5% patch to affected areas up to 12 h/day",
+  ].filter(Boolean) as string[];
 
-    if (needGeneral) {
-      lines.push("- General analgesia: Acetaminophen 1 g PO q6h or NSAIDs if no contraindications.");
-    }
-    if (needSpasm) {
-      lines.push("- Muscle spasm: Methocarbamol 500 mg PO q8h PRN (or tizanidine if preferred).");
-    }
-    if (needNeuropathic) {
-      lines.push("- Neuropathic: Gabapentin 100–300 mg PO q8–12h (renally adjust; monitor sedation).");
-    }
-    if (needLocalized) {
-      lines.push("- Localized therapy: Topical lidocaine or diclofenac to affected area as appropriate.");
-    }
+  const prnLines = [
+    prnRows.moderate.text ? `> Mod: ${prnRows.moderate.text}` : "> Moderate Pain: —",
+    prnRows.severe.text ? `> Sev: ${prnRows.severe.text}` : "> Severe Pain: —",
+    prnRows.breakthrough.text ? `> BTP: ${prnRows.breakthrough.text}` : "> Breakthrough Pain: —",
+  ].join("\n");
 
-    lines.push("");
-    lines.push(
-      "Rounding: suggested doses are rounded to practical units (tablet strengths / IV increments). Adjust for renal/hepatic impairment, frailty, and sedation risk. Non-linear conversions (e.g., methadone, buprenorphine) shown as conservative estimates."
-    );
-    lines.push(
-      "This tool does not replace clinical judgment. Verify all calculations and consider patient-specific factors."
-    );
+  const mmList = selectedAdjuncts.length
+    ? selectedAdjuncts.map((x) => `>  * ${x}`).join("\n")
+    : ">  * None selected";
 
-    return lines.join("\n");
-  }, [
-    ome,
-    details,
-    prnRows.moderate?.text,
-    prnRows.severe?.text,
-    prnRows.breakthrough?.text,
-    needSpasm,
-    needNeuropathic,
-    needLocalized,
-    needGeneral,
-    continueER,
-    showPrnArea,
-  ]);
+  const planText = `# Pain Management
+Plan:
+1. Scheduled opiate: ${action}
+2. PRN pain regimen:
+${prnLines}
+3. Multimodal Regimen:
+${mmList}
+`;
+
+  async function handleCopy() {
+    const ok = await copyToClipboard(planText);
+    alert(ok ? "Assessment & Plan copied to clipboard!" :
+      "Copy failed — check browser permissions or select text manually.");
+  }
+
+  // ✅ Make this a boolean so JSX never receives a bare number
+  const showHoldWarning =
+    isMounted &&
+    scheduledParts.length === 0 &&
+    longActFormattedList.length > 0 &&
+    continueER === null;
 
   return (
     <section className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-gray-900">Assessment & Plan</h3>
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="h-4 w-4"
-            checked={showPrnArea}
-            onChange={(e) => setShowPrnArea(e.target.checked)}
-          />
-          Include PRN section
-        </label>
-      </div>
-
-      <div className="mt-3">
-        <pre className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm whitespace-pre-wrap break-words">
-          {planText}
-        </pre>
-
-        <div className="mt-3 flex gap-3">
-          <button
-            className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm hover:bg-indigo-700"
-            onClick={async () => {
-              const ok = await copyToClipboard(planText);
-              setCopied(ok ? "plan" : null);
-              setTimeout(() => setCopied(null), 1500);
-            }}
-          >
-            Copy Assessment & Plan
-          </button>
-          {copied === "plan" && (
-            <span className="text-sm text-green-700 self-center">Copied!</span>
-          )}
+        <h3 className="text-xl font-bold text-gray-900">Final Regimen Summary (A&P Format)</h3>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-600">
+            {showPrnArea ? "Hide" : "Show"} text
+          </span>
+          <Switch checked={showPrnArea} onChange={setShowPrnArea} />
         </div>
-
-        <p className="mt-3 text-xs text-gray-600">
-          Doses are rounded to practical units (tablet strengths / IV increments). Adjust for renal/hepatic impairment, frailty, and sedation risk. Non-linear conversions (e.g., methadone, buprenorphine) are displayed conservatively.
-        </p>
       </div>
+
+      <div className="mt-4 flex gap-3">
+        <button
+          type="button"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-colors"
+          onClick={handleCopy}
+        >
+          Copy Assessment & Plan
+        </button>
+
+        {showHoldWarning && (
+          <span className="text-red-500 text-sm flex items-center">
+            * Warning: Please select YES/NO for home ER/LA to finalize action.
+          </span>
+        )}
+      </div>
+
+      {isMounted ? (
+        <div className={showPrnArea ? "mt-4 block" : "hidden"}>
+          <pre className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm whitespace-pre-wrap font-mono text-gray-800">
+            {planText}
+          </pre>
+        </div>
+      ) : (
+        <div className={showPrnArea ? "mt-4 block" : "hidden"} />
+      )}
     </section>
   );
 }

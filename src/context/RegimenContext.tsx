@@ -18,10 +18,8 @@ import {
 } from "../types";
 import {
   generateUniqueId,
+  totalHomeOME,
   prnSuggestion,
-  // NEW: APAP-aware rollup + safety warning
-  sumOMEAndAPAP,
-  apapSafetyWarning,
 } from "../utils/conversionLogic";
 
 const RegimenContext = createContext<RegimenContextType | undefined>(undefined);
@@ -80,29 +78,10 @@ export function RegimenProvider({ children }: { children: React.ReactNode }) {
     } else if (!opioidNaive && homeRows.length === 0) {
       setHomeRows([{ id: generateUniqueId(), isPRN: false }]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opioidNaive]);
+  }, [opioidNaive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Calculated Values (OME, APAP, Details) ---
-  // NOTE: We keep the public shape { ome, details } so other components don't break.
-  const { ome, details } = useMemo(() => {
-    const { ome, apap, details: detailLines, notes } = sumOMEAndAPAP(homeRows);
-    const lines: string[] = [];
-
-    // Prepend APAP/day line with warning if present
-    const warn = apapSafetyWarning(apap);
-    lines.push(
-      `APAP/day: ${Math.round(apap)} mg${warn ? ` — ${warn.replace(/^⚠️\s*/, "")}` : ""}`
-    );
-
-    // Existing detail lines (per-med OME summaries)
-    lines.push(...detailLines);
-
-    // Any non-linear / special-case notes
-    if (notes.length) lines.push(...notes);
-
-    return { ome, details: lines };
-  }, [homeRows]);
+  // --- Calculated Values (OME & Details) ---
+  const { ome, details } = useMemo(() => totalHomeOME(homeRows), [homeRows]);
 
   // --- Calculated Values (PRN Suggestions) ---
   const prnRows: PrnRows = useMemo(() => {

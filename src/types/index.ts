@@ -11,10 +11,7 @@ export type Opioid =
   | "tapentadol"
   | "fentanyl_tds"
   | "methadone"
-  | "buprenorphine"
-  // NEW combo products (opioid + acetaminophen)
-  | "oxycodone_apap"
-  | "hydrocodone_apap";
+  | "buprenorphine";
 
 export type Route = "oral" | "iv" | "tds";
 export type Severity = "moderate" | "severe" | "breakthrough";
@@ -23,18 +20,17 @@ export interface HomeMedRow {
   id: string;
   drug?: Opioid;
   route?: Route;
-  doseMg?: number;              // opioid component dose (mg) or mcg/h for fentanyl_tds
-  freqHours?: number;           // q?h for scheduled meds
+  doseMg?: number;
+  freqHours?: number;
   isPRN?: boolean;
-  avgPrnDosesPerDay?: number;   // required if PRN to include in OME
-  isER?: boolean;               // extended-release/long-acting flag
-  apapPerTabMg?: number;        // ONLY for combo products (Percocet/Norco)
+  avgPrnDosesPerDay?: number;
+  isER?: boolean;
 }
 
 export interface DoseInput {
   drug: Opioid;
   route: Route;
-  totalDailyDoseMg: number;     // daily opioid mg (not APAP)
+  totalDailyDoseMg: number;
   fentanylPatchMcgPerHr?: number;
 }
 
@@ -44,7 +40,7 @@ export interface SwitchOptions {
 }
 
 export interface RotateTargetResult {
-  range: [number, number] | null;     // [low daily mg, high daily mg] of target drug
+  range: [number, number] | null; // [low daily mg, high daily mg] of target drug
   notes: string[];
   fentanylPatchMcgHr?: [number, number]; // [low mcg/h, high mcg/h] for fentanyl
 }
